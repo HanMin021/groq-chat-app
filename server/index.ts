@@ -1,6 +1,9 @@
 import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
 import express from 'express';
+import { getPool } from './db.js';
+import { authRouter } from './auth.js';
+import { requireAuth } from './middleware.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -28,12 +31,26 @@ async function main() {
 
 const app = express();
 app.use(express.json());
+app.use('/auth', authRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/chat', async (req, res) => {
+app.get('/db-health', async (_req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .query('SELECT DB_NAME() AS db, SUSER_SNAME() AS login');
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
+app.post('/chat', requireAuth, async (req, res) => {
   const { message } = req.body;
 
   if (typeof message !== 'string' || message.trim() === '') {
