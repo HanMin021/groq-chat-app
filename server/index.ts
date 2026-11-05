@@ -4,6 +4,13 @@ import express from 'express';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
 import { requireAuth } from './middleware.js';
+import {
+  createConversation,
+  conversationBelongsToUser,
+  getMessages,
+  addMessage,
+  type ChatMessage,
+} from './chats.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -51,7 +58,7 @@ app.get('/db-health', async (_req, res) => {
 });
 
 app.post('/chat', requireAuth, async (req, res) => {
-  const { message } = req.body;
+    const { message, conversationId } = req.body;
 
   if (typeof message !== 'string' || message.trim() === '') {
     res.status(400).json({ error: 'message is required' });
@@ -59,11 +66,35 @@ app.post('/chat', requireAuth, async (req, res) => {
   }
 
   try {
+        const userId: number = res.locals.userId;
+
+    let convId: number;
+    let history: ChatMessage[] = [];
+
+    if (conversationId === undefined) {
+      convId = await createConversation(userId, message.trim().slice(0, 50));
+    } else {
+      convId = Number(conversationId);
+      if (
+        !Number.isInteger(convId) ||
+        !(await conversationBelongsToUser(convId, userId))
+      ) {
+        res.status(404).json({ error: 'Conversation not found' });
+        return;
+      }
+      history = await getMessages(convId);
+    }
+
+    await addMessage(convId, 'user', message);
+
     const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: message }],
+      messages: [...history, { role: 'user', content: message }],
       model: 'openai/gpt-oss-120b',
     });
-    res.json({ reply: completion.choices[0]?.message?.content ?? '' });
+    const reply = completion.choices[0]?.message?.content ?? '';
+
+    await addMessage(convId, 'assistant', reply);
+    res.json({ conversationId: convId, reply });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get response from Groq' });
