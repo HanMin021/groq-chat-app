@@ -56,3 +56,15 @@ export async function addMessage(
       'INSERT INTO messages (conversation_id, role, content) VALUES (@conversationId, @role, @content)'
     );
 }
+
+
+export async function listConversations(userId: number) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('userId', sql.Int, userId)
+    .query(
+      'SELECT id, title, created_at FROM conversations WHERE user_id = @userId ORDER BY id DESC'
+    );
+  return result.recordset;
+}

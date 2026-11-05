@@ -1,6 +1,7 @@
 import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
 import express from 'express';
+import cors from 'cors';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
 import { requireAuth } from './middleware.js';
@@ -9,6 +10,7 @@ import {
   conversationBelongsToUser,
   getMessages,
   addMessage,
+  listConversations, 
   type ChatMessage,
 } from './chats.js';
 
@@ -37,6 +39,7 @@ async function main() {
 }
 
 const app = express();
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 app.use('/auth', authRouter);
 
@@ -98,6 +101,33 @@ app.post('/chat', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get response from Groq' });
+  }
+});
+
+app.get('/conversations', requireAuth, async (_req, res) => {
+  try {
+    const conversations = await listConversations(res.locals.userId);
+    res.json(conversations);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load conversations' });
+  }
+});
+
+app.get('/conversations/:id/messages', requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (
+      !Number.isInteger(id) ||
+      !(await conversationBelongsToUser(id, res.locals.userId))
+    ) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
+    res.json(await getMessages(id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load messages' });
   }
 });
 
