@@ -1,5 +1,6 @@
 import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
+import express from 'express';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -14,7 +15,7 @@ async function main() {
       messages: [
         {
           role: "user",
-          content: "Explain quantum computing in simple terms."
+          content: "Explain quantum computing in one sentence."
         }
       ],
       // Change the model ID to an active one:
@@ -25,4 +26,14 @@ async function main() {
   console.log(chatCompletion.choices[0]?.message?.content || "");
 }
 
-main();
+const app = express();
+app.use(express.json());
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+const PORT = Number(process.env.PORT) || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
