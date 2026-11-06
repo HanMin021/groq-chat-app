@@ -7,6 +7,8 @@ import {
   type Message,
 } from './api';
 import Sidebar from './Sidebar';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Props = { token: string; onLogout: () => void };
 
@@ -60,7 +62,7 @@ export default function Chat({ token, onLogout }: Props) {
     try {
       const result = await sendMessage(token, text, conversationId);
       setConversationId(result.conversationId);
-            if (conversationId === undefined) {
+      if (conversationId === undefined) {
         listConversations(token)
           .then(setConversations)
           .catch(() => {});
@@ -117,7 +119,15 @@ export default function Chat({ token, onLogout }: Props) {
                     : 'bg-white text-slate-900 shadow-sm'
                 }`}
               >
-                {m.content}
+                {m.role === 'assistant' ? (
+                  <div className="prose prose-sm max-w-none overflow-x-auto whitespace-normal">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  m.content
+                )}
               </div>
             </div>
           ))}
