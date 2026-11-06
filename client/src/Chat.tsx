@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { sendMessage, type Message } from './api';
+import {
+  getMessages,
+  listConversations,
+  sendMessage,
+  type Conversation,
+  type Message,
+} from './api';
+import Sidebar from './Sidebar';
 
 type Props = { token: string; onLogout: () => void };
 
@@ -9,12 +16,36 @@ export default function Chat({ token, onLogout }: Props) {
   const [conversationId, setConversationId] = useState<number | undefined>();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Scroll to the newest message whenever the chat changes.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
+
+  // Load the chat history once when the screen opens.
+  useEffect(() => {
+    listConversations(token)
+      .then(setConversations)
+      .catch(() => {});
+  }, [token]);
+
+  async function openConversation(id: number) {
+    setError('');
+    try {
+      setMessages(await getMessages(token, id));
+      setConversationId(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load chat');
+    }
+  }
+
+  function newChat() {
+    setMessages([]);
+    setConversationId(undefined);
+    setError('');
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,6 +60,11 @@ export default function Chat({ token, onLogout }: Props) {
     try {
       const result = await sendMessage(token, text, conversationId);
       setConversationId(result.conversationId);
+            if (conversationId === undefined) {
+        listConversations(token)
+          .then(setConversations)
+          .catch(() => {});
+      }
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: result.reply },
@@ -41,7 +77,14 @@ export default function Chat({ token, onLogout }: Props) {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50">
+    <div className="flex h-screen bg-slate-50">
+      <Sidebar
+        conversations={conversations}
+        activeId={conversationId}
+        onSelect={openConversation}
+        onNewChat={newChat}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <h1 className="text-lg font-semibold text-slate-900">Groq Chat</h1>
         <button
@@ -109,6 +152,7 @@ export default function Chat({ token, onLogout }: Props) {
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }
