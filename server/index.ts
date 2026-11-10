@@ -21,30 +21,13 @@ import {
   validateNewCase,
   CASE_FORM_TOOL,
 } from './cases.js';
+import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
 
 // Load environment variables from the .env file
 dotenv.config();
 
 // Initialize the client. It automatically looks for process.env.GROQ_API_KEY
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-async function main() {
-  console.log("Waiting for response from Groq...");
-
-  const chatCompletion = await groq.chat.completions.create({
-    messages: [
-      {
-        role: "user",
-        content: "Explain quantum computing in simple terms."
-      }
-    ],
-    // Change the model ID to an active one:
-    model: "openai/gpt-oss-120b",
-  });
-
-  console.log("\nResponse:");
-  console.log(chatCompletion.choices[0]?.message?.content || "");
-}
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173' }));
@@ -110,18 +93,24 @@ app.post('/chat', requireAuth, async (req, res) => {
       { role: 'user', content: message },
     ];
 
+    const tools = [SEARCH_KNOWLEDGE_TOOL, CASE_FORM_TOOL];
+    const model = 'openai/gpt-oss-120b';
+
     let caseForm:
       | { title: string; description: string; severity: string }
       | undefined;
 
     let completion = await groq.chat.completions.create({
       messages: chatMessages,
-      model: 'openai/gpt-oss-120b',
-      tools: [CASE_FORM_TOOL],
+      model,
+      tools,
     });
 
-    const toolCalls = completion.choices[0]?.message?.tool_calls;
-    if (toolCalls && toolCalls.length > 0) {
+    // The AI may use tools several times (for example search, then show the form).
+    for (let round = 0; round < 4; round++) {
+      const toolCalls = completion.choices[0]?.message?.tool_calls;
+      if (!toolCalls || toolCalls.length === 0) break;
+
       chatMessages.push({
         role: 'assistant',
         content: completion.choices[0]?.message?.content ?? '',
@@ -130,7 +119,29 @@ app.post('/chat', requireAuth, async (req, res) => {
 
       for (const call of toolCalls) {
         let result: object;
-        if (call.function.name === 'open_case_form') {
+
+        if (call.function.name === 'search_knowledge') {
+          let query = '';
+          try {
+            query = String(JSON.parse(call.function.arguments).query ?? '');
+          } catch {
+            query = '';
+          }
+          const articles = await searchKnowledge(query);
+          result =
+            articles.length > 0
+              ? {
+                  found: true,
+                  articles: articles.map((a) => ({
+                    title: a.title,
+                    content: a.content,
+                  })),
+                }
+              : {
+                  found: false,
+                  note: 'No matching article. Tell the customer you are not sure and show the case form.',
+                };
+        } else if (call.function.name === 'open_case_form') {
           const draft = parseNewCase(call.function.arguments, convId);
           if (draft) {
             caseForm = {
@@ -148,6 +159,7 @@ app.post('/chat', requireAuth, async (req, res) => {
         } else {
           result = { ok: false, error: 'Unknown tool' };
         }
+
         chatMessages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -157,12 +169,14 @@ app.post('/chat', requireAuth, async (req, res) => {
 
       completion = await groq.chat.completions.create({
         messages: chatMessages,
-        model: 'openai/gpt-oss-120b',
-        tools: [CASE_FORM_TOOL],
+        model,
+        tools,
       });
     }
 
-    const reply = completion.choices[0]?.message?.content ?? '';
+    const reply =
+      completion.choices[0]?.message?.content ||
+      'Sorry, I could not answer that. Please try again, or use the Open a case button.';
 
     await addMessage(convId, 'assistant', reply);
     res.json({ conversationId: convId, reply, caseForm });
