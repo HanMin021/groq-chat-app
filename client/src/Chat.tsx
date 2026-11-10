@@ -10,6 +10,7 @@ import Sidebar from './Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSpeechRecognition } from './useSpeechRecognition';
+import { speak, speechOutputSupported, stopSpeaking } from './speech';
 
 type Props = { token: string; onLogout: () => void };
 
@@ -23,6 +24,10 @@ export default function Chat({ token, onLogout }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [voiceLang, setVoiceLang] = useState('en-US');
   const voice = useSpeechRecognition(voiceLang, (text) => setInput(text));
+  const [speakReplies, setSpeakReplies] = useState(false);
+
+  // Stop speaking if the chat screen closes.
+  useEffect(() => stopSpeaking, []);
 
   // Scroll to the newest message whenever the chat changes.
   useEffect(() => {
@@ -38,6 +43,7 @@ export default function Chat({ token, onLogout }: Props) {
 
   async function openConversation(id: number) {
     setError('');
+    stopSpeaking();
     try {
       setMessages(await getMessages(token, id));
       setConversationId(id);
@@ -47,6 +53,7 @@ export default function Chat({ token, onLogout }: Props) {
   }
 
   function newChat() {
+    stopSpeaking();
     setMessages([]);
     setConversationId(undefined);
     setError('');
@@ -74,6 +81,7 @@ export default function Chat({ token, onLogout }: Props) {
         ...prev,
         { role: 'assistant', content: result.reply },
       ]);
+            if (speakReplies) speak(result.reply, voiceLang);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -92,12 +100,29 @@ export default function Chat({ token, onLogout }: Props) {
       <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <h1 className="text-lg font-semibold text-slate-900">Groq Chat</h1>
-        <button
-          onClick={onLogout}
-          className="text-sm text-slate-500 hover:text-slate-900"
-        >
-          Log out
-        </button>
+                <div className="flex items-center gap-4">
+          {speechOutputSupported && (
+            <button
+              onClick={() => {
+                if (speakReplies) stopSpeaking();
+                setSpeakReplies(!speakReplies);
+              }}
+              className={`rounded-lg px-3 py-1 text-sm font-medium transition ${
+                speakReplies
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {speakReplies ? '🔊 Voice on' : '🔈 Voice off'}
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            className="text-sm text-slate-500 hover:text-slate-900"
+          >
+            Log out
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 py-6">
