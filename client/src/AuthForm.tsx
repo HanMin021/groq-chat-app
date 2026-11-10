@@ -26,16 +26,16 @@ export default function AuthForm({ onAuthenticated }: Props) {
   }
 
     return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 dark:bg-slate-900">
       <form
-        className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 shadow-lg"
+        className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 shadow-lg dark:bg-slate-800"
         onSubmit={handleSubmit}
       >
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
             {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {mode === 'login'
               ? 'Log in to continue your chats.'
               : 'Sign up to start chatting.'}
@@ -48,7 +48,7 @@ export default function AuthForm({ onAuthenticated }: Props) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400"
         />
         <input
           type="password"
@@ -61,7 +61,7 @@ export default function AuthForm({ onAuthenticated }: Props) {
         />
 
         {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {error}
           </p>
         )}
@@ -77,7 +77,7 @@ export default function AuthForm({ onAuthenticated }: Props) {
         <button
           type="button"
           onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-          className="w-full text-sm text-indigo-600 hover:underline"
+          className="w-full text-sm text-indigo-600 hover:underline dark:text-indigo-400"
         >
           {mode === 'login'
             ? 'No account? Create one'

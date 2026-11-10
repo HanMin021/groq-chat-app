@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import AuthForm from './AuthForm';
 import Chat from './Chat';
+import { useTheme } from './useTheme';
 
 export default function App() {
+    useTheme();
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem('token')
   );

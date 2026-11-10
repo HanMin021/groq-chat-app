@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { speak, speechOutputSupported, stopSpeaking } from './speech';
+import { useTheme } from './useTheme';
 
 type Props = { token: string; onLogout: () => void };
 
@@ -25,6 +26,7 @@ export default function Chat({ token, onLogout }: Props) {
   const [voiceLang, setVoiceLang] = useState('en-US');
   const voice = useSpeechRecognition(voiceLang, (text) => setInput(text));
   const [speakReplies, setSpeakReplies] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   // Stop speaking if the chat screen closes.
   useEffect(() => stopSpeaking, []);
@@ -90,7 +92,7 @@ export default function Chat({ token, onLogout }: Props) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50">
+       <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       <Sidebar
         conversations={conversations}
         activeId={conversationId}
@@ -98,8 +100,8 @@ export default function Chat({ token, onLogout }: Props) {
         onNewChat={newChat}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <h1 className="text-lg font-semibold text-slate-900">Groq Chat</h1>
+             <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-700 dark:bg-slate-800">
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Groq Chat</h1>
                 <div className="flex items-center gap-4">
           {speechOutputSupported && (
             <button
@@ -108,17 +110,23 @@ export default function Chat({ token, onLogout }: Props) {
                 setSpeakReplies(!speakReplies);
               }}
               className={`rounded-lg px-3 py-1 text-sm font-medium transition ${
-                speakReplies
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                speakReplies
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
               }`}
             >
               {speakReplies ? '🔊 Voice on' : '🔈 Voice off'}
             </button>
           )}
+                    <button
+            onClick={toggleTheme}
+            className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
           <button
             onClick={onLogout}
-            className="text-sm text-slate-500 hover:text-slate-900"
+                        className="text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
           >
             Log out
           </button>
@@ -144,11 +152,11 @@ export default function Chat({ token, onLogout }: Props) {
                 className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2 ${
                   m.role === 'user'
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-slate-900 shadow-sm'
+                    : 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
                 }`}
               >
                 {m.role === 'assistant' ? (
-                  <div className="prose prose-sm max-w-none overflow-x-auto whitespace-normal">
+                  <div className="prose prose-sm max-w-none overflow-x-auto whitespace-normal dark:prose-invert">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {m.content}
                     </ReactMarkdown>
@@ -162,12 +170,12 @@ export default function Chat({ token, onLogout }: Props) {
 
           {sending && <p className="text-sm text-slate-400">Thinking...</p>}
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
               {error}
             </p>
           )}
                     {voice.error && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               {voice.error}
             </p>
           )}
@@ -177,7 +185,7 @@ export default function Chat({ token, onLogout }: Props) {
 
       <form
         onSubmit={handleSubmit}
-        className="border-t border-slate-200 bg-white px-4 py-3"
+        className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800"
       >
         <div className="mx-auto flex max-w-2xl gap-2">
                     {voice.supported && (
@@ -186,7 +194,7 @@ export default function Chat({ token, onLogout }: Props) {
                 value={voiceLang}
                 onChange={(e) => setVoiceLang(e.target.value)}
                 title="Voice language"
-                className="rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700"
+                className="rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
               >
                 <option value="en-US">English</option>
                 <option value="ms-MY">Bahasa Melayu</option>
@@ -199,7 +207,7 @@ export default function Chat({ token, onLogout }: Props) {
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   voice.listening
                     ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                    : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
                 {voice.listening ? 'Stop' : '🎤 Speak'}
@@ -210,7 +218,7 @@ export default function Chat({ token, onLogout }: Props) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400"
           />
           <button
             type="submit"
