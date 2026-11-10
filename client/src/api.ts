@@ -2,6 +2,11 @@ const API_URL = import.meta.env.VITE_API_URL as string;
 
 export type Conversation = { id: number; title: string; created_at: string };
 export type Message = { role: 'user' | 'assistant'; content: string };
+export type CaseDraft = {
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'urgent';
+};
 
 async function request<T>(
   path: string,
@@ -52,11 +57,29 @@ export function sendMessage(
   conversationId?: number,
   voice?: boolean
 ) {
-  return request<{ conversationId: number; reply: string }>(
+    return request<{
+    conversationId: number;
+    reply: string;
+    caseForm?: CaseDraft;
+  }>(
     '/chat',
     {
       method: 'POST',
       body: JSON.stringify({ message, conversationId, voice }),
+    },
+    token
+  );
+}
+
+export function createCase(
+  token: string,
+  data: CaseDraft & { conversationId?: number }
+) {
+  return request<{ caseNumber: number }>(
+    '/cases',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
     },
     token
   );

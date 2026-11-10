@@ -3,10 +3,12 @@ import {
   getMessages,
   listConversations,
   sendMessage,
-  type Conversation,
+    type Conversation,
   type Message,
+  type CaseDraft,
 } from './api';
 import Sidebar from './Sidebar';
+import CaseForm from './CaseForm';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSpeechRecognition } from './useSpeechRecognition';
@@ -26,6 +28,10 @@ export default function Chat({ token, onLogout }: Props) {
   const [voiceLang, setVoiceLang] = useState('en-US');
   const voice = useSpeechRecognition(voiceLang, (text) => setInput(text));
   const [speakReplies, setSpeakReplies] = useState(false);
+    const [caseDraft, setCaseDraft] = useState<{
+    draft: CaseDraft;
+    id: number;
+  } | null>(null);
   const { theme, toggleTheme } = useTheme();
 
   // Stop speaking if the chat screen closes.
@@ -45,7 +51,8 @@ export default function Chat({ token, onLogout }: Props) {
 
   async function openConversation(id: number) {
     setError('');
-    stopSpeaking();
+        stopSpeaking();
+    setCaseDraft(null);
     try {
       setMessages(await getMessages(token, id));
       setConversationId(id);
@@ -56,7 +63,8 @@ export default function Chat({ token, onLogout }: Props) {
 
   function newChat() {
     stopSpeaking();
-    setMessages([]);
+        setMessages([]);
+    setCaseDraft(null);
     setConversationId(undefined);
     setError('');
   }
@@ -84,6 +92,9 @@ export default function Chat({ token, onLogout }: Props) {
         { role: 'assistant', content: result.reply },
       ]);
             if (speakReplies) speak(result.reply, voiceLang);
+                  if (result.caseForm) {
+        setCaseDraft({ draft: result.caseForm, id: Date.now() });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -167,6 +178,14 @@ export default function Chat({ token, onLogout }: Props) {
               </div>
             </div>
           ))}
+                    {caseDraft && (
+            <CaseForm
+              key={caseDraft.id}
+              token={token}
+              conversationId={conversationId}
+              draft={caseDraft.draft}
+            />
+          )}
 
           {sending && <p className="text-sm text-slate-400">Thinking...</p>}
           {error && (

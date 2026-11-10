@@ -11,14 +11,15 @@ import {
   conversationBelongsToUser,
   getMessages,
   addMessage,
-  listConversations, 
+  listConversations,
   type ChatMessage,
 } from './chats.js';
 import {
   listCasesForUser,
   createCase,
   parseNewCase,
-  CREATE_CASE_TOOL,
+  validateNewCase,
+  CASE_FORM_TOOL,
 } from './cases.js';
 
 // Load environment variables from the .env file
@@ -31,15 +32,15 @@ async function main() {
   console.log("Waiting for response from Groq...");
 
   const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: "Explain quantum computing in simple terms."
-        }
-      ],
-      // Change the model ID to an active one:
-      model: "openai/gpt-oss-120b", 
-    });
+    messages: [
+      {
+        role: "user",
+        content: "Explain quantum computing in simple terms."
+      }
+    ],
+    // Change the model ID to an active one:
+    model: "openai/gpt-oss-120b",
+  });
 
   console.log("\nResponse:");
   console.log(chatCompletion.choices[0]?.message?.content || "");
@@ -68,7 +69,7 @@ app.get('/db-health', async (_req, res) => {
 });
 
 app.post('/chat', requireAuth, async (req, res) => {
-      const { message, conversationId, voice } = req.body;
+  const { message, conversationId, voice } = req.body;
 
   if (typeof message !== 'string' || message.trim() === '') {
     res.status(400).json({ error: 'message is required' });
@@ -76,7 +77,7 @@ app.post('/chat', requireAuth, async (req, res) => {
   }
 
   try {
-        const userId: number = res.locals.userId;
+    const userId: number = res.locals.userId;
 
     let convId: number;
     let history: ChatMessage[] = [];
@@ -97,7 +98,7 @@ app.post('/chat', requireAuth, async (req, res) => {
 
     await addMessage(convId, 'user', message);
 
-        const chatMessages: any[] = [
+    const chatMessages: any[] = [
       {
         role: 'system',
         content:
@@ -109,10 +110,14 @@ app.post('/chat', requireAuth, async (req, res) => {
       { role: 'user', content: message },
     ];
 
+    let caseForm:
+      | { title: string; description: string; severity: string }
+      | undefined;
+
     let completion = await groq.chat.completions.create({
       messages: chatMessages,
       model: 'openai/gpt-oss-120b',
-      tools: [CREATE_CASE_TOOL],
+      tools: [CASE_FORM_TOOL],
     });
 
     const toolCalls = completion.choices[0]?.message?.tool_calls;
@@ -125,11 +130,18 @@ app.post('/chat', requireAuth, async (req, res) => {
 
       for (const call of toolCalls) {
         let result: object;
-        if (call.function.name === 'create_case') {
-          const newCase = parseNewCase(call.function.arguments, convId);
-          if (newCase) {
-            const caseNumber = await createCase(userId, newCase);
-            result = { ok: true, case_number: caseNumber };
+        if (call.function.name === 'open_case_form') {
+          const draft = parseNewCase(call.function.arguments, convId);
+          if (draft) {
+            caseForm = {
+              title: draft.title,
+              description: draft.description,
+              severity: draft.severity,
+            };
+            result = {
+              ok: true,
+              note: 'The case form is now shown to the customer. Tell them to check the details and press Submit. The case is NOT opened until they submit it.',
+            };
           } else {
             result = { ok: false, error: 'Invalid case details' };
           }
@@ -146,14 +158,14 @@ app.post('/chat', requireAuth, async (req, res) => {
       completion = await groq.chat.completions.create({
         messages: chatMessages,
         model: 'openai/gpt-oss-120b',
-        tools: [CREATE_CASE_TOOL],
+        tools: [CASE_FORM_TOOL],
       });
     }
 
     const reply = completion.choices[0]?.message?.content ?? '';
 
     await addMessage(convId, 'assistant', reply);
-    res.json({ conversationId: convId, reply });
+    res.json({ conversationId: convId, reply, caseForm });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to get response from Groq' });
@@ -193,6 +205,32 @@ app.get('/cases', requireAuth, async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load cases' });
+  }
+});
+
+app.post('/cases', requireAuth, async (req, res) => {
+  const newCase = validateNewCase(req.body);
+  if (!newCase) {
+    res
+      .status(400)
+      .json({ error: 'Please fill in the title, description and severity.' });
+    return;
+  }
+
+  try {
+    const userId: number = res.locals.userId;
+    if (
+      newCase.conversationId !== undefined &&
+      !(await conversationBelongsToUser(newCase.conversationId, userId))
+    ) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
+    const caseNumber = await createCase(userId, newCase);
+    res.status(201).json({ caseNumber });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create case' });
   }
 });
 
