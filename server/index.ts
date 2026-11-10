@@ -14,6 +14,7 @@ import {
   listConversations, 
   type ChatMessage,
 } from './chats.js';
+import { listCasesForUser } from './cases.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -139,6 +140,15 @@ app.get('/conversations/:id/messages', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+app.get('/cases', requireAuth, async (_req, res) => {
+  try {
+    res.json(await listCasesForUser(res.locals.userId));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load cases' });
   }
 });
 
