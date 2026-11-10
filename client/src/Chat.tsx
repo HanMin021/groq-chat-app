@@ -9,6 +9,7 @@ import {
 import Sidebar from './Sidebar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSpeechRecognition } from './useSpeechRecognition';
 
 type Props = { token: string; onLogout: () => void };
 
@@ -20,6 +21,8 @@ export default function Chat({ token, onLogout }: Props) {
   const [error, setError] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [voiceLang, setVoiceLang] = useState('en-US');
+  const voice = useSpeechRecognition(voiceLang, (text) => setInput(text));
 
   // Scroll to the newest message whenever the chat changes.
   useEffect(() => {
@@ -138,6 +141,11 @@ export default function Chat({ token, onLogout }: Props) {
               {error}
             </p>
           )}
+                    {voice.error && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {voice.error}
+            </p>
+          )}
           <div ref={bottomRef} />
         </div>
       </main>
@@ -147,6 +155,32 @@ export default function Chat({ token, onLogout }: Props) {
         className="border-t border-slate-200 bg-white px-4 py-3"
       >
         <div className="mx-auto flex max-w-2xl gap-2">
+                    {voice.supported && (
+            <>
+              <select
+                value={voiceLang}
+                onChange={(e) => setVoiceLang(e.target.value)}
+                title="Voice language"
+                className="rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                <option value="en-US">English</option>
+                <option value="ms-MY">Bahasa Melayu</option>
+                <option value="zh-CN">普通话</option>
+                <option value="yue-Hant-HK">粵語</option>
+              </select>
+              <button
+                type="button"
+                onClick={voice.listening ? voice.stop : voice.start}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  voice.listening
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                }`}
+              >
+                {voice.listening ? 'Stop' : '🎤 Speak'}
+              </button>
+            </>
+          )}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
