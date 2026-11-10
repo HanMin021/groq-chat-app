@@ -2,6 +2,7 @@ import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import { SYSTEM_PROMPT } from './knowledge.js';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
 import { requireAuth } from './middleware.js';
@@ -91,7 +92,11 @@ app.post('/chat', requireAuth, async (req, res) => {
     await addMessage(convId, 'user', message);
 
     const completion = await groq.chat.completions.create({
-      messages: [...history, { role: 'user', content: message }],
+            messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...history,
+        { role: 'user', content: message },
+      ],
       model: 'openai/gpt-oss-120b',
     });
     const reply = completion.choices[0]?.message?.content ?? '';
