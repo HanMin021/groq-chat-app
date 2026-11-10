@@ -61,3 +61,6 @@ This assistant cannot change licences or discuss contract terms or pricing. Pass
 
 ### Complaints [SAMPLE]
 Acknowledge the problem and apologise sincerely without making excuses. Collect the details listed above. Explain that a human agent will review the complaint. Do not promise compensation, refunds or specific resolution times.`;
+
+
+export const VOICE_MODE_PROMPT = `The customer is listening to your reply through a text-to-speech voice. Answer in at most three short sentences of plain spoken language. Do not use bullet points, tables, headings, bold text, emoji or links. If the answer needs more detail, give the most important point and offer to continue.`;

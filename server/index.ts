@@ -2,7 +2,7 @@ import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import { SYSTEM_PROMPT } from './knowledge.js';
+import { SYSTEM_PROMPT, VOICE_MODE_PROMPT } from './knowledge.js';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
 import { requireAuth } from './middleware.js';
@@ -62,7 +62,7 @@ app.get('/db-health', async (_req, res) => {
 });
 
 app.post('/chat', requireAuth, async (req, res) => {
-    const { message, conversationId } = req.body;
+      const { message, conversationId, voice } = req.body;
 
   if (typeof message !== 'string' || message.trim() === '') {
     res.status(400).json({ error: 'message is required' });
@@ -93,7 +93,13 @@ app.post('/chat', requireAuth, async (req, res) => {
 
     const completion = await groq.chat.completions.create({
             messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+                {
+          role: 'system',
+          content:
+            voice === true
+              ? `${SYSTEM_PROMPT}\n\n## Voice mode\n${VOICE_MODE_PROMPT}`
+              : SYSTEM_PROMPT,
+        },
         ...history,
         { role: 'user', content: message },
       ],

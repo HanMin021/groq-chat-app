@@ -70,7 +70,7 @@ export default function Chat({ token, onLogout }: Props) {
     setSending(true);
 
     try {
-      const result = await sendMessage(token, text, conversationId);
+      const result = await sendMessage(token, text, conversationId, speakReplies);
       setConversationId(result.conversationId);
       if (conversationId === undefined) {
         listConversations(token)

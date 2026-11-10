@@ -49,13 +49,14 @@ export function getMessages(token: string, conversationId: number) {
 export function sendMessage(
   token: string,
   message: string,
-  conversationId?: number
+  conversationId?: number,
+  voice?: boolean
 ) {
   return request<{ conversationId: number; reply: string }>(
     '/chat',
     {
       method: 'POST',
-      body: JSON.stringify({ message, conversationId }),
+      body: JSON.stringify({ message, conversationId, voice }),
     },
     token
   );
