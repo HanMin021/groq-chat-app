@@ -14,7 +14,12 @@ import {
   listConversations, 
   type ChatMessage,
 } from './chats.js';
-import { listCasesForUser } from './cases.js';
+import {
+  listCasesForUser,
+  createCase,
+  parseNewCase,
+  CREATE_CASE_TOOL,
+} from './cases.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -92,20 +97,59 @@ app.post('/chat', requireAuth, async (req, res) => {
 
     await addMessage(convId, 'user', message);
 
-    const completion = await groq.chat.completions.create({
-            messages: [
-                {
-          role: 'system',
-          content:
-            voice === true
-              ? `${SYSTEM_PROMPT}\n\n## Voice mode\n${VOICE_MODE_PROMPT}`
-              : SYSTEM_PROMPT,
-        },
-        ...history,
-        { role: 'user', content: message },
-      ],
+        const chatMessages: any[] = [
+      {
+        role: 'system',
+        content:
+          voice === true
+            ? `${SYSTEM_PROMPT}\n\n## Voice mode\n${VOICE_MODE_PROMPT}`
+            : SYSTEM_PROMPT,
+      },
+      ...history,
+      { role: 'user', content: message },
+    ];
+
+    let completion = await groq.chat.completions.create({
+      messages: chatMessages,
       model: 'openai/gpt-oss-120b',
+      tools: [CREATE_CASE_TOOL],
     });
+
+    const toolCalls = completion.choices[0]?.message?.tool_calls;
+    if (toolCalls && toolCalls.length > 0) {
+      chatMessages.push({
+        role: 'assistant',
+        content: completion.choices[0]?.message?.content ?? '',
+        tool_calls: toolCalls,
+      });
+
+      for (const call of toolCalls) {
+        let result: object;
+        if (call.function.name === 'create_case') {
+          const newCase = parseNewCase(call.function.arguments, convId);
+          if (newCase) {
+            const caseNumber = await createCase(userId, newCase);
+            result = { ok: true, case_number: caseNumber };
+          } else {
+            result = { ok: false, error: 'Invalid case details' };
+          }
+        } else {
+          result = { ok: false, error: 'Unknown tool' };
+        }
+        chatMessages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify(result),
+        });
+      }
+
+      completion = await groq.chat.completions.create({
+        messages: chatMessages,
+        model: 'openai/gpt-oss-120b',
+        tools: [CREATE_CASE_TOOL],
+      });
+    }
+
     const reply = completion.choices[0]?.message?.content ?? '';
 
     await addMessage(convId, 'assistant', reply);

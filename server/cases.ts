@@ -43,3 +43,62 @@ export async function listCasesForUser(userId: number) {
     );
   return result.recordset;
 }
+
+export const CREATE_CASE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'create_case',
+    description:
+      'Open a support case for the customer. Only call this after the customer has agreed to open a case.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'A short title for the case, under 100 characters.',
+        },
+        description: {
+          type: 'string',
+          description:
+            'What happened, when it started, the product affected, how many users are affected, and any error messages.',
+        },
+        severity: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'urgent'],
+          description:
+            'urgent = Severity 1, high = Severity 2, medium = Severity 3, low = Severity 4.',
+        },
+      },
+      required: ['title', 'description', 'severity'],
+    },
+  },
+};
+
+const SEVERITIES = ['low', 'medium', 'high', 'urgent'];
+
+// Checks the arguments the AI sent. Returns null if anything is wrong.
+export function parseNewCase(
+  rawArguments: string,
+  conversationId: number
+): NewCase | null {
+  try {
+    const args = JSON.parse(rawArguments);
+    if (
+      typeof args.title !== 'string' ||
+      args.title.trim() === '' ||
+      typeof args.description !== 'string' ||
+      args.description.trim() === '' ||
+      !SEVERITIES.includes(args.severity)
+    ) {
+      return null;
+    }
+    return {
+      title: args.title.trim().slice(0, 200),
+      description: args.description.trim(),
+      severity: args.severity as Severity,
+      conversationId,
+    };
+  } catch {
+    return null;
+  }
+}
