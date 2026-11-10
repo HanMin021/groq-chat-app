@@ -40,7 +40,7 @@ export default function Chat({ token, onLogout }: Props) {
   // Scroll to the newest message whenever the chat changes.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, sending]);
+    }, [messages, sending, caseDraft]);
 
   // Load the chat history once when the screen opens.
   useEffect(() => {
@@ -67,6 +67,13 @@ export default function Chat({ token, onLogout }: Props) {
     setCaseDraft(null);
     setConversationId(undefined);
     setError('');
+  }
+    function openBlankCaseForm() {
+    stopSpeaking();
+    setCaseDraft({
+      draft: { title: '', description: '', severity: 'medium' },
+      id: Date.now(),
+    });
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -129,6 +136,13 @@ export default function Chat({ token, onLogout }: Props) {
               {speakReplies ? '🔊 Voice on' : '🔈 Voice off'}
             </button>
           )}
+
+                    <button
+            onClick={openBlankCaseForm}
+            className="rounded-lg bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            📝 Open a case
+          </button>
                     <button
             onClick={toggleTheme}
             className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
