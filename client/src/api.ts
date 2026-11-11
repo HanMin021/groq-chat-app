@@ -92,3 +92,95 @@ export function deleteConversation(token: string, conversationId: number) {
     token
   );
 }
+
+// ---------- Agent features ----------
+
+export type UserProfile = {
+  id: number;
+  email: string;
+  role: 'customer' | 'agent';
+};
+
+export type CaseSeverity = CaseDraft['severity'];
+export type CaseStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export type AgentCaseSummary = {
+  id: number;
+  title: string;
+  severity: CaseSeverity;
+  status: CaseStatus;
+  created_at: string;
+  assigned_to: number | null;
+  customer_email: string;
+  assigned_email: string | null;
+};
+
+export type AgentCaseDetail = {
+  case: AgentCaseSummary & {
+    description: string;
+    updated_at: string;
+    conversation_id: number | null;
+  };
+  messages: { role: 'user' | 'assistant'; content: string; created_at: string }[];
+};
+
+export type CaseNote = {
+  id: number;
+  note: string;
+  created_at: string;
+  author_email: string;
+};
+
+export type AgentUser = { id: number; email: string };
+
+export function getMe(token: string) {
+  return request<UserProfile>('/me', {}, token);
+}
+
+export function listAgentCases(
+  token: string,
+  filter: { status?: string; severity?: string }
+) {
+  const params = new URLSearchParams();
+  if (filter.status) params.set('status', filter.status);
+  if (filter.severity) params.set('severity', filter.severity);
+  const query = params.toString();
+  return request<AgentCaseSummary[]>(
+    `/agent/cases${query ? `?${query}` : ''}`,
+    {},
+    token
+  );
+}
+
+export function getAgentCase(token: string, caseId: number) {
+  return request<AgentCaseDetail>(`/agent/cases/${caseId}`, {}, token);
+}
+
+export function updateAgentCase(
+  token: string,
+  caseId: number,
+  changes: { status?: CaseStatus; assignedTo?: number | null }
+) {
+  return request<AgentCaseDetail>(
+    `/agent/cases/${caseId}`,
+    { method: 'PATCH', body: JSON.stringify(changes) },
+    token
+  );
+}
+
+export function listAgentUsers(token: string) {
+  return request<AgentUser[]>('/agent/agents', {}, token);
+}
+
+export function listCaseNotes(token: string, caseId: number) {
+  return request<CaseNote[]>(`/agent/cases/${caseId}/notes`, {}, token);
+}
+
+export function addCaseNote(token: string, caseId: number, note: string) {
+  return request<CaseNote[]>(
+    `/agent/cases/${caseId}/notes`,
+    { method: 'POST', body: JSON.stringify({ note }) },
+    token
+  );
+}
+

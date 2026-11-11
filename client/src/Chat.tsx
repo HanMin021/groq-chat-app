@@ -16,9 +16,14 @@ import { useSpeechRecognition } from './useSpeechRecognition';
 import { speak, speechOutputSupported, stopSpeaking } from './speech';
 import { useTheme } from './useTheme';
 
-type Props = { token: string; onLogout: () => void };
+type Props = {
+  token: string;
+  onLogout: () => void;
+  isAgent?: boolean;
+  onOpenAgent?: () => void;
+};
 
-export default function Chat({ token, onLogout }: Props) {
+export default function Chat({ token, onLogout, isAgent, onOpenAgent }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<number | undefined>();
@@ -154,6 +159,15 @@ export default function Chat({ token, onLogout }: Props) {
                 }`}
               >
                 {speakReplies ? '🔊 Voice on' : '🔈 Voice off'}
+              </button>
+            )}
+
+                        {isAgent && onOpenAgent && (
+              <button
+                onClick={onOpenAgent}
+                className="rounded-lg bg-emerald-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-emerald-700"
+              >
+                🛠 Agent dashboard
               </button>
             )}
             <button
