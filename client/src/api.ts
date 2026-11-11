@@ -84,3 +84,11 @@ export function createCase(
     token
   );
 }
+
+export function deleteConversation(token: string, conversationId: number) {
+  return request<Record<string, never>>(
+    `/conversations/${conversationId}`,
+    { method: 'DELETE' },
+    token
+  );
+}

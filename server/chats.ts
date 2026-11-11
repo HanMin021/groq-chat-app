@@ -28,7 +28,9 @@ export async function conversationBelongsToUser(
     .request()
     .input('id', sql.Int, conversationId)
     .input('userId', sql.Int, userId)
-    .query('SELECT 1 AS found FROM conversations WHERE id = @id AND user_id = @userId');
+    .query(
+      'SELECT 1 AS found FROM conversations WHERE id = @id AND user_id = @userId AND deleted_at IS NULL'
+    );
   return result.recordset.length > 0;
 }
 
@@ -64,7 +66,22 @@ export async function listConversations(userId: number) {
     .request()
     .input('userId', sql.Int, userId)
     .query(
-      'SELECT id, title, created_at FROM conversations WHERE user_id = @userId ORDER BY id DESC'
+      'SELECT id, title, created_at FROM conversations WHERE user_id = @userId AND deleted_at IS NULL ORDER BY id DESC'
     );
   return result.recordset;
+}
+
+// Hides a conversation from its owner. The data is kept (agents may need it for a case).
+export async function deleteConversation(
+  conversationId: number,
+  userId: number
+): Promise<void> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input('id', sql.Int, conversationId)
+    .input('userId', sql.Int, userId)
+    .query(
+      'UPDATE conversations SET deleted_at = SYSUTCDATETIME() WHERE id = @id AND user_id = @userId AND deleted_at IS NULL'
+    );
 }

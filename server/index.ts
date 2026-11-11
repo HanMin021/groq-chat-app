@@ -11,7 +11,8 @@ import {
   conversationBelongsToUser,
   getMessages,
   addMessage,
-  listConversations,
+    listConversations,
+  deleteConversation,
   type ChatMessage,
 } from './chats.js';
 import {
@@ -210,6 +211,24 @@ app.get('/conversations/:id/messages', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+app.delete('/conversations/:id', requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (
+      !Number.isInteger(id) ||
+      !(await conversationBelongsToUser(id, res.locals.userId))
+    ) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
+    await deleteConversation(id, res.locals.userId);
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete conversation' });
   }
 });
 
