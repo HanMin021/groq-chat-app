@@ -239,3 +239,40 @@ export async function listAgents() {
     .query("SELECT id, email FROM users WHERE role = 'agent' ORDER BY email");
   return result.recordset;
 }
+
+// ---------- Internal notes (agents only) ----------
+
+export async function listCaseNotes(caseId: number) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('caseId', sql.Int, caseId)
+    .query(
+      `SELECT n.id, n.note, n.created_at, u.email AS author_email
+       FROM case_notes n
+       JOIN users u ON u.id = n.author_id
+       WHERE n.case_id = @caseId
+       ORDER BY n.id`
+    );
+  return result.recordset;
+}
+
+// Returns false if the case does not exist.
+export async function addCaseNote(
+  caseId: number,
+  authorId: number,
+  note: string
+): Promise<boolean> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('caseId', sql.Int, caseId)
+    .input('authorId', sql.Int, authorId)
+    .input('note', sql.NVarChar(sql.MAX), note)
+    .query(
+      `INSERT INTO case_notes (case_id, author_id, note)
+       SELECT @caseId, @authorId, @note
+       WHERE EXISTS (SELECT 1 FROM cases WHERE id = @caseId)`
+    );
+  return (result.rowsAffected[0] ?? 0) > 0;
+}

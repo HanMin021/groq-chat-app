@@ -26,7 +26,9 @@ import {
   getCaseDetail,
   setCaseStatus,
   assignCase,
-  listAgents,
+    listAgents,
+  listCaseNotes,
+  addCaseNote,
 } from './cases.js';
 import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
 import { getUserProfile } from './users.js';
@@ -391,6 +393,58 @@ app.patch('/agent/cases/:id', requireAuth, requireAgent, async (req, res) => {
     res.status(500).json({ error: 'Failed to update case' });
   }
 });
+
+app.get(
+  '/agent/cases/:id/notes',
+  requireAuth,
+  requireAgent,
+  async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    try {
+      res.json(await listCaseNotes(id));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to load notes' });
+    }
+  }
+);
+
+app.post(
+  '/agent/cases/:id/notes',
+  requireAuth,
+  requireAgent,
+  async (req, res) => {
+    const id = Number(req.params.id);
+    const note = req.body?.note;
+    if (!Number.isInteger(id)) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    if (
+      typeof note !== 'string' ||
+      note.trim() === '' ||
+      note.length > 5000
+    ) {
+      res.status(400).json({ error: 'Please write a note (up to 5000 characters).' });
+      return;
+    }
+    try {
+      const saved = await addCaseNote(id, res.locals.userId, note.trim());
+      if (!saved) {
+        res.status(404).json({ error: 'Case not found' });
+        return;
+      }
+      res.status(201).json(await listCaseNotes(id));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to save note' });
+    }
+  }
+);
 
 const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, () => {
