@@ -5,7 +5,7 @@ import cors from 'cors';
 import { SYSTEM_PROMPT, VOICE_MODE_PROMPT } from './knowledge.js';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
-import { requireAuth } from './middleware.js';
+import { requireAuth, requireAgent } from './middleware.js';
 import {
   createConversation,
   conversationBelongsToUser,
@@ -19,10 +19,17 @@ import {
   listCasesForUser,
   createCase,
   parseNewCase,
-  validateNewCase,
+    validateNewCase,
   CASE_FORM_TOOL,
+  CASE_STATUSES,
+  listAllCases,
+  getCaseDetail,
+  setCaseStatus,
+  assignCase,
+  listAgents,
 } from './cases.js';
 import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
+import { getUserProfile } from './users.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -187,6 +194,20 @@ app.post('/chat', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/me', requireAuth, async (_req, res) => {
+  try {
+    const user = await getUserProfile(res.locals.userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load user' });
+  }
+});
+
 app.get('/conversations', requireAuth, async (_req, res) => {
   try {
     const conversations = await listConversations(res.locals.userId);
@@ -264,6 +285,110 @@ app.post('/cases', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create case' });
+  }
+});
+
+// ---------- Agent routes: logged in AND role = agent ----------
+
+const SEVERITY_VALUES = ['low', 'medium', 'high', 'urgent'];
+
+app.get('/agent/cases', requireAuth, requireAgent, async (req, res) => {
+  const status =
+    typeof req.query.status === 'string' && req.query.status !== ''
+      ? req.query.status
+      : undefined;
+  const severity =
+    typeof req.query.severity === 'string' && req.query.severity !== ''
+      ? req.query.severity
+      : undefined;
+
+  if (
+    (status && !CASE_STATUSES.includes(status)) ||
+    (severity && !SEVERITY_VALUES.includes(severity))
+  ) {
+    res.status(400).json({ error: 'Invalid filter' });
+    return;
+  }
+
+  try {
+    res.json(await listAllCases({ status, severity }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load cases' });
+  }
+});
+
+app.get('/agent/agents', requireAuth, requireAgent, async (_req, res) => {
+  try {
+    res.json(await listAgents());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load agents' });
+  }
+});
+
+app.get('/agent/cases/:id', requireAuth, requireAgent, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ error: 'Case not found' });
+    return;
+  }
+  try {
+    const detail = await getCaseDetail(id);
+    if (!detail) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    res.json(detail);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load case' });
+  }
+});
+
+app.patch('/agent/cases/:id', requireAuth, requireAgent, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ error: 'Case not found' });
+    return;
+  }
+
+  const { status, assignedTo } = req.body ?? {};
+  if (status === undefined && assignedTo === undefined) {
+    res.status(400).json({ error: 'Nothing to update' });
+    return;
+  }
+  if (
+    status !== undefined &&
+    (typeof status !== 'string' || !CASE_STATUSES.includes(status))
+  ) {
+    res.status(400).json({ error: 'Invalid status' });
+    return;
+  }
+  if (
+    assignedTo !== undefined &&
+    assignedTo !== null &&
+    !Number.isInteger(assignedTo)
+  ) {
+    res.status(400).json({ error: 'Invalid assignee' });
+    return;
+  }
+
+  try {
+    if (status !== undefined && !(await setCaseStatus(id, status))) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    if (assignedTo !== undefined && !(await assignCase(id, assignedTo))) {
+      res
+        .status(400)
+        .json({ error: 'Case not found, or that user is not an agent' });
+      return;
+    }
+    res.json(await getCaseDetail(id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update case' });
   }
 });
 

@@ -130,3 +130,112 @@ export function validateNewCase(input: any): NewCase | null {
     conversationId,
   };
 }
+
+// ---------- Agent functions (only used by routes protected with requireAgent) ----------
+
+export const CASE_STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
+
+// All cases, urgent first. Optional filters by status and severity.
+export async function listAllCases(filter: {
+  status?: string;
+  severity?: string;
+}) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('status', sql.NVarChar(20), filter.status ?? null)
+    .input('severity', sql.NVarChar(20), filter.severity ?? null)
+    .query(
+      `SELECT c.id, c.title, c.severity, c.status, c.created_at, c.assigned_to,
+              u.email AS customer_email, a.email AS assigned_email
+       FROM cases c
+       JOIN users u ON u.id = c.user_id
+       LEFT JOIN users a ON a.id = c.assigned_to
+       WHERE (@status IS NULL OR c.status = @status)
+         AND (@severity IS NULL OR c.severity = @severity)
+       ORDER BY CASE c.severity
+                  WHEN 'urgent' THEN 1
+                  WHEN 'high' THEN 2
+                  WHEN 'medium' THEN 3
+                  ELSE 4
+                END,
+                c.id DESC`
+    );
+  return result.recordset;
+}
+
+// One case with the chat transcript that led to it.
+export async function getCaseDetail(caseId: number) {
+  const pool = await getPool();
+  const caseResult = await pool
+    .request()
+    .input('id', sql.Int, caseId)
+    .query(
+      `SELECT c.id, c.title, c.description, c.severity, c.status,
+              c.created_at, c.updated_at, c.conversation_id, c.assigned_to,
+              u.email AS customer_email, a.email AS assigned_email
+       FROM cases c
+       JOIN users u ON u.id = c.user_id
+       LEFT JOIN users a ON a.id = c.assigned_to
+       WHERE c.id = @id`
+    );
+  const row = caseResult.recordset[0];
+  if (!row) return null;
+
+  let messages: { role: string; content: string; created_at: Date }[] = [];
+  if (row.conversation_id !== null) {
+    const m = await pool
+      .request()
+      .input('cid', sql.Int, row.conversation_id)
+      .query(
+        'SELECT role, content, created_at FROM messages WHERE conversation_id = @cid ORDER BY id'
+      );
+    messages = m.recordset;
+  }
+  return { case: row, messages };
+}
+
+// Returns false if no case with that id exists.
+export async function setCaseStatus(
+  caseId: number,
+  status: string
+): Promise<boolean> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('id', sql.Int, caseId)
+    .input('status', sql.NVarChar(20), status)
+    .query(
+      'UPDATE cases SET status = @status, updated_at = SYSUTCDATETIME() WHERE id = @id'
+    );
+  return (result.rowsAffected[0] ?? 0) > 0;
+}
+
+// Assigns a case to an agent (or unassigns it with null).
+// Returns false if the case does not exist or the user is not an agent.
+export async function assignCase(
+  caseId: number,
+  agentId: number | null
+): Promise<boolean> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input('id', sql.Int, caseId)
+    .input('agent', sql.Int, agentId)
+    .query(
+      `UPDATE cases
+       SET assigned_to = @agent, updated_at = SYSUTCDATETIME()
+       WHERE id = @id
+         AND (@agent IS NULL
+              OR EXISTS (SELECT 1 FROM users WHERE id = @agent AND role = 'agent'))`
+    );
+  return (result.rowsAffected[0] ?? 0) > 0;
+}
+
+export async function listAgents() {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .query("SELECT id, email FROM users WHERE role = 'agent' ORDER BY email");
+  return result.recordset;
+}
