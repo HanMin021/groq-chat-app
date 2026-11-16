@@ -32,6 +32,14 @@ import {
 } from './cases.js';
 import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
 import { getUserProfile } from './users.js';
+import {
+  chatSchema,
+  newCaseSchema,
+  caseUpdateSchema,
+  noteSchema,
+  idSchema,
+  validationMessage,
+} from './validation.js';
 
 // Load environment variables from the .env file
 dotenv.config();
@@ -62,12 +70,12 @@ app.get('/db-health', async (_req, res) => {
 });
 
 app.post('/chat', requireAuth, async (req, res) => {
-  const { message, conversationId, voice } = req.body;
-
-  if (typeof message !== 'string' || message.trim() === '') {
-    res.status(400).json({ error: 'message is required' });
+    const parsed = chatSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
     return;
   }
+  const { message, conversationId, voice } = parsed.data;
 
   try {
     const userId: number = res.locals.userId;
@@ -265,13 +273,12 @@ app.get('/cases', requireAuth, async (_req, res) => {
 });
 
 app.post('/cases', requireAuth, async (req, res) => {
-  const newCase = validateNewCase(req.body);
-  if (!newCase) {
-    res
-      .status(400)
-      .json({ error: 'Please fill in the title, description and severity.' });
+    const parsed = newCaseSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
     return;
   }
+  const newCase = parsed.data;
 
   try {
     const userId: number = res.locals.userId;
@@ -349,32 +356,19 @@ app.get('/agent/cases/:id', requireAuth, requireAgent, async (req, res) => {
 });
 
 app.patch('/agent/cases/:id', requireAuth, requireAgent, async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) {
+  const idResult = idSchema.safeParse(req.params.id);
+  if (!idResult.success) {
     res.status(404).json({ error: 'Case not found' });
     return;
   }
+  const id = idResult.data;
 
-  const { status, assignedTo } = req.body ?? {};
-  if (status === undefined && assignedTo === undefined) {
-    res.status(400).json({ error: 'Nothing to update' });
+  const parsed = caseUpdateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
     return;
   }
-  if (
-    status !== undefined &&
-    (typeof status !== 'string' || !CASE_STATUSES.includes(status))
-  ) {
-    res.status(400).json({ error: 'Invalid status' });
-    return;
-  }
-  if (
-    assignedTo !== undefined &&
-    assignedTo !== null &&
-    !Number.isInteger(assignedTo)
-  ) {
-    res.status(400).json({ error: 'Invalid assignee' });
-    return;
-  }
+  const { status, assignedTo } = parsed.data;
 
   try {
     if (status !== undefined && !(await setCaseStatus(id, status))) {
@@ -418,27 +412,27 @@ app.post(
   requireAuth,
   requireAgent,
   async (req, res) => {
-    const id = Number(req.params.id);
-    const note = req.body?.note;
-    if (!Number.isInteger(id)) {
+    const idResult = idSchema.safeParse(req.params.id);
+    if (!idResult.success) {
       res.status(404).json({ error: 'Case not found' });
       return;
     }
-    if (
-      typeof note !== 'string' ||
-      note.trim() === '' ||
-      note.length > 5000
-    ) {
-      res.status(400).json({ error: 'Please write a note (up to 5000 characters).' });
+    const parsed = noteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: validationMessage(parsed.error) });
       return;
     }
     try {
-      const saved = await addCaseNote(id, res.locals.userId, note.trim());
+      const saved = await addCaseNote(
+        idResult.data,
+        res.locals.userId,
+        parsed.data.note
+      );
       if (!saved) {
         res.status(404).json({ error: 'Case not found' });
         return;
       }
-      res.status(201).json(await listCaseNotes(id));
+      res.status(201).json(await listCaseNotes(idResult.data));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to save note' });

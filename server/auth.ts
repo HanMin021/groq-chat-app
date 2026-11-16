@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import sql from 'mssql';
 import { getPool } from './db.js';
+import { loginSchema, registerSchema, validationMessage } from './validation.js';
 
 export const authRouter = Router();
 
@@ -13,21 +14,12 @@ function signToken(userId: number, email: string): string {
 }
 
 authRouter.post('/register', async (req, res) => {
-  const { email, password } = req.body ?? {};
-
-  if (
-    typeof email !== 'string' ||
-    !email.includes('@') ||
-    typeof password !== 'string' ||
-    password.length < 8
-  ) {
-    res.status(400).json({
-      error: 'A valid email and a password of at least 8 characters are required',
-    });
+  const parsed = registerSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
     return;
   }
-
-  const normalizedEmail = email.trim().toLowerCase();
+  const { email: normalizedEmail, password } = parsed.data;
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
@@ -54,14 +46,12 @@ authRouter.post('/register', async (req, res) => {
 });
 
 authRouter.post('/login', async (req, res) => {
-  const { email, password } = req.body ?? {};
-
-  if (typeof email !== 'string' || typeof password !== 'string') {
-    res.status(400).json({ error: 'Email and password are required' });
+  const parsed = loginSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
     return;
   }
-
-  const normalizedEmail = email.trim().toLowerCase();
+  const { email: normalizedEmail, password } = parsed.data;
 
   try {
     const pool = await getPool();
