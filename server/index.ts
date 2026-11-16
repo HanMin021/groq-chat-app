@@ -46,12 +46,27 @@ import {
 // Load environment variables from the .env file
 dotenv.config();
 
+// Refuse to start with a missing or weak login-token secret.
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || jwtSecret.length < 32) {
+  console.error(
+    'JWT_SECRET is missing or too short (use at least 32 random characters). Server not started.'
+  );
+  process.exit(1);
+}
+
 // Initialize the client. It automatically looks for process.env.GROQ_API_KEY
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: 'http://localhost:5173' }));
+// Websites allowed to call this API. Set CLIENT_ORIGIN in .env
+// (separate several addresses with commas).
+const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 const loginLimiter = rateLimit({
