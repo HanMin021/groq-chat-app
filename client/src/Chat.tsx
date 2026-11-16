@@ -21,9 +21,16 @@ type Props = {
   onLogout: () => void;
   isAgent?: boolean;
   onOpenAgent?: () => void;
+  onOpenMyCases?: () => void;
 };
 
-export default function Chat({ token, onLogout, isAgent, onOpenAgent }: Props) {
+export default function Chat({
+  token,
+  onLogout,
+  isAgent,
+  onOpenAgent,
+  onOpenMyCases,
+}: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<number | undefined>();
@@ -176,6 +183,14 @@ export default function Chat({ token, onLogout, isAgent, onOpenAgent }: Props) {
             >
               📝 Open a case
             </button>
+                        {onOpenMyCases && (
+              <button
+                onClick={onOpenMyCases}
+                className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              >
+                📋 My cases
+              </button>
+            )}
             <button
               onClick={toggleTheme}
               className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"

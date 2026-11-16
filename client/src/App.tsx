@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AuthForm from './AuthForm';
 import Chat from './Chat';
 import AgentDashboard from './AgentDashboard';
+import MyCases from './MyCases';
 import { getMe } from './api';
 import { useTheme } from './useTheme';
 
@@ -11,7 +12,7 @@ export default function App() {
     localStorage.getItem('token')
   );
   const [isAgent, setIsAgent] = useState(false);
-  const [view, setView] = useState<'chat' | 'agent'>('chat');
+  const [view, setView] = useState<'chat' | 'agent' | 'mycases'>('chat');
 
   // Ask the server whether the logged-in user is an agent.
   useEffect(() => {
@@ -55,12 +56,23 @@ export default function App() {
     );
   }
 
+    if (view === 'mycases') {
+    return (
+      <MyCases
+        token={token}
+        onBack={() => setView('chat')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <Chat
       token={token}
       onLogout={handleLogout}
       isAgent={isAgent}
       onOpenAgent={() => setView('agent')}
+      onOpenMyCases={() => setView('mycases')}
     />
   );
 }
