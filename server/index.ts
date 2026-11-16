@@ -34,11 +34,17 @@ import {
 import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
 import { getUserProfile } from './users.js';
 import {
+  getCaseOwnerAndStatus,
+  listCaseMessages,
+  addCaseMessage,
+} from './caseMessages.js';
+import {
   chatSchema,
   newCaseSchema,
   caseUpdateSchema,
   noteSchema,
   idSchema,
+  caseMessageSchema,
   validationMessage,
 } from './validation.js';
 
@@ -91,6 +97,15 @@ const chatLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   // Count per logged-in user (requireAuth runs first and sets the user id).
+  keyGenerator: (_req, res) => String(res.locals.userId),
+  message: { error: 'You are sending messages too quickly. Please wait a moment.' },
+});
+
+const caseMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
   keyGenerator: (_req, res) => String(res.locals.userId),
   message: { error: 'You are sending messages too quickly. Please wait a moment.' },
 });
@@ -344,6 +359,68 @@ app.post('/cases', requireAuth, async (req, res) => {
   }
 });
 
+// ---------- Customer: messages on one of their own cases ----------
+
+app.get('/cases/:id/messages', requireAuth, async (req, res) => {
+  const idResult = idSchema.safeParse(req.params.id);
+  if (!idResult.success) {
+    res.status(404).json({ error: 'Case not found' });
+    return;
+  }
+  try {
+    const info = await getCaseOwnerAndStatus(idResult.data);
+    if (!info || info.userId !== res.locals.userId) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    res.json(await listCaseMessages(idResult.data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+app.post(
+  '/cases/:id/messages',
+  requireAuth,
+  caseMessageLimiter,
+  async (req, res) => {
+    const idResult = idSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    const parsed = caseMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: validationMessage(parsed.error) });
+      return;
+    }
+    try {
+      const info = await getCaseOwnerAndStatus(idResult.data);
+      if (!info || info.userId !== res.locals.userId) {
+        res.status(404).json({ error: 'Case not found' });
+        return;
+      }
+      if (info.status === 'closed') {
+        res.status(409).json({
+          error: 'This case is closed. Please open a new case if you need more help.',
+        });
+        return;
+      }
+      await addCaseMessage(
+        idResult.data,
+        res.locals.userId,
+        'customer',
+        parsed.data.body
+      );
+      res.status(201).json(await listCaseMessages(idResult.data));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to send message' });
+    }
+  }
+);
+
 // ---------- Agent routes: logged in AND role = agent ----------
 
 const SEVERITY_VALUES = ['low', 'medium', 'high', 'urgent'];
@@ -488,6 +565,67 @@ app.post(
 );
 
 const PORT = Number(process.env.PORT) || 3000;
+
+// ---------- Agent: conversation with the customer on any case ----------
+
+app.get(
+  '/agent/cases/:id/messages',
+  requireAuth,
+  requireAgent,
+  async (req, res) => {
+    const idResult = idSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    try {
+      if (!(await getCaseOwnerAndStatus(idResult.data))) {
+        res.status(404).json({ error: 'Case not found' });
+        return;
+      }
+      res.json(await listCaseMessages(idResult.data));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to load messages' });
+    }
+  }
+);
+
+app.post(
+  '/agent/cases/:id/messages',
+  requireAuth,
+  requireAgent,
+  caseMessageLimiter,
+  async (req, res) => {
+    const idResult = idSchema.safeParse(req.params.id);
+    if (!idResult.success) {
+      res.status(404).json({ error: 'Case not found' });
+      return;
+    }
+    const parsed = caseMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: validationMessage(parsed.error) });
+      return;
+    }
+    try {
+      if (!(await getCaseOwnerAndStatus(idResult.data))) {
+        res.status(404).json({ error: 'Case not found' });
+        return;
+      }
+      await addCaseMessage(
+        idResult.data,
+        res.locals.userId,
+        'agent',
+        parsed.data.body
+      );
+      res.status(201).json(await listCaseMessages(idResult.data));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to send message' });
+    }
+  }
+);
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

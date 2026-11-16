@@ -86,6 +86,16 @@ export const noteSchema = z.object({
 });
 
 // Turns a failed validation into one short message for the customer or agent.
+
+// ---------- Case messages (customer <-> agent) ----------
+
+export const caseMessageSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Please write a message.')
+    .max(2000, 'A message can be up to 2000 characters.'),
+});
 export function validationMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Invalid request.';
 }
