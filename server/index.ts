@@ -21,7 +21,6 @@ import {
   listCasesForUser,
   createCase,
   parseNewCase,
-    validateNewCase,
   CASE_FORM_TOOL,
   CASE_STATUSES,
   listAllCases,

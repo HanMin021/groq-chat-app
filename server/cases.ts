@@ -103,33 +103,7 @@ export function parseNewCase(
   }
 }
 
-// Checks the details sent by the website form. Returns null if anything is wrong.
-export function validateNewCase(input: any): NewCase | null {
-  if (
-    !input ||
-    typeof input.title !== 'string' ||
-    input.title.trim() === '' ||
-    typeof input.description !== 'string' ||
-    input.description.trim() === '' ||
-    input.description.length > 5000 ||
-    !SEVERITIES.includes(input.severity)
-  ) {
-    return null;
-  }
 
-  let conversationId: number | undefined;
-  if (input.conversationId !== undefined && input.conversationId !== null) {
-    if (!Number.isInteger(input.conversationId)) return null;
-    conversationId = input.conversationId;
-  }
-
-  return {
-    title: input.title.trim().slice(0, 200),
-    description: input.description.trim(),
-    severity: input.severity as Severity,
-    conversationId,
-  };
-}
 
 // ---------- Agent functions (only used by routes protected with requireAgent) ----------
 
