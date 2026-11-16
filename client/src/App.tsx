@@ -3,7 +3,7 @@ import AuthForm from './AuthForm';
 import Chat from './Chat';
 import AgentDashboard from './AgentDashboard';
 import MyCases from './MyCases';
-import { getMe } from './api';
+import { getMe, setUnauthorizedHandler } from './api';
 import { useTheme } from './useTheme';
 
 export default function App() {
@@ -29,6 +29,13 @@ export default function App() {
       cancelled = true;
     };
   }, [token]);
+
+  
+  // If the server says the token is invalid or expired, log out.
+  useEffect(() => {
+    setUnauthorizedHandler(handleLogout);
+    return () => setUnauthorizedHandler(undefined);
+  });
 
   function handleAuthenticated(newToken: string) {
     localStorage.setItem('token', newToken);

@@ -8,6 +8,13 @@ export type CaseDraft = {
   severity: 'low' | 'medium' | 'high' | 'urgent';
 };
 
+let onUnauthorized: (() => void) | undefined;
+
+// App.tsx registers a function here that logs the user out.
+export function setUnauthorizedHandler(handler: (() => void) | undefined) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -21,6 +28,7 @@ async function request<T>(
     },
   });
   const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && token) onUnauthorized?.();
   if (!res.ok) throw new Error(data.error ?? 'Request failed');
   return data as T;
 }
