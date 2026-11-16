@@ -2,6 +2,8 @@ import { Groq } from 'groq-sdk';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import { SYSTEM_PROMPT, VOICE_MODE_PROMPT } from './knowledge.js';
 import { getPool } from './db.js';
 import { authRouter } from './auth.js';
@@ -48,8 +50,39 @@ dotenv.config();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
+app.use(helmet());
 app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many failed login attempts. Please try again in 15 minutes.' },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many sign-ups from this address. Please try again later.' },
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 15,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  // Count per logged-in user (requireAuth runs first and sets the user id).
+  keyGenerator: (_req, res) => String(res.locals.userId),
+  message: { error: 'You are sending messages too quickly. Please wait a moment.' },
+});
+
+app.use('/auth/login', loginLimiter);
+app.use('/auth/register', registerLimiter);
 app.use('/auth', authRouter);
 
 app.get('/health', (_req, res) => {
@@ -69,7 +102,7 @@ app.get('/db-health', async (_req, res) => {
   }
 });
 
-app.post('/chat', requireAuth, async (req, res) => {
+app.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     const parsed = chatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: validationMessage(parsed.error) });
