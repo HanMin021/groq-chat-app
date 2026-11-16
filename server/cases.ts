@@ -36,7 +36,7 @@ export async function listCasesForUser(userId: number) {
     .request()
     .input('userId', sql.Int, userId)
     .query(
-      `SELECT id, title, severity, status, created_at
+            `SELECT id, title, description, severity, status, created_at, updated_at
        FROM cases
        WHERE user_id = @userId
        ORDER BY id DESC`

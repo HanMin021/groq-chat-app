@@ -184,3 +184,18 @@ export function addCaseNote(token: string, caseId: number, note: string) {
   );
 }
 
+// ---------- Customer: my own cases ----------
+
+export type MyCase = {
+  id: number;
+  title: string;
+  description: string;
+  severity: CaseSeverity;
+  status: CaseStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export function listMyCases(token: string) {
+  return request<MyCase[]>('/cases', {}, token);
+}
