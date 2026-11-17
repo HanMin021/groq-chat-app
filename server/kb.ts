@@ -23,11 +23,29 @@ export const SEARCH_KNOWLEDGE_TOOL = {
 };
 
 // Splits text into lowercase words of 3 or more letters or digits.
-function words(text: string): string[] {
+export function words(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter((w) => w.length >= 3);
+}
+
+// How well an article matches the search words: a hit in the title counts 3,
+// in the keywords 2 and in the text 1.
+export function scoreArticle(
+  terms: string[],
+  article: { title: string; keywords: string; content: string }
+): number {
+  const title = article.title.toLowerCase();
+  const keywords = article.keywords.toLowerCase();
+  const content = article.content.toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (title.includes(term)) score += 3;
+    if (keywords.includes(term)) score += 2;
+    if (content.includes(term)) score += 1;
+  }
+  return score;
 }
 
 export async function searchKnowledge(
@@ -44,18 +62,12 @@ export async function searchKnowledge(
       'SELECT id, title, content, keywords FROM kb_articles WHERE is_active = 1'
     );
 
-  const scored = result.recordset.map((row: any) => {
-    const title = String(row.title).toLowerCase();
-    const keywords = String(row.keywords).toLowerCase();
-    const content = String(row.content).toLowerCase();
-    let score = 0;
-    for (const term of terms) {
-      if (title.includes(term)) score += 3;
-      if (keywords.includes(term)) score += 2;
-      if (content.includes(term)) score += 1;
-    }
-    return { id: row.id, title: row.title, content: row.content, score };
-  });
+  const scored = result.recordset.map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    score: scoreArticle(terms, row),
+  }));
 
   return scored
     .filter((a: { score: number }) => a.score > 0)
