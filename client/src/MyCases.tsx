@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listMyCases, type MyCase } from './api';
+import CaseConversation from './CaseConversation';
 
 type Props = { token: string; onBack: () => void; onLogout: () => void };
 
@@ -30,6 +31,7 @@ export default function MyCases({ token, onBack, onLogout }: Props) {
   const [cases, setCases] = useState<MyCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openId, setOpenId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +131,24 @@ export default function MyCases({ token, onBack, onLogout }: Props) {
                 Opened {new Date(c.created_at).toLocaleString()} · Last updated{' '}
                 {new Date(c.updated_at).toLocaleString()}
               </p>
+
+              <button
+                onClick={() => setOpenId(openId === c.id ? null : c.id)}
+                className="mt-3 rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              >
+                {openId === c.id ? 'Hide messages' : '💬 Messages'}
+              </button>
+
+              {openId === c.id && (
+                <div className="mt-3">
+                  <CaseConversation
+                    token={token}
+                    caseId={c.id}
+                    viewer="customer"
+                    closed={c.status === 'closed'}
+                  />
+                </div>
+              )}
             </article>
           ))}
         </div>

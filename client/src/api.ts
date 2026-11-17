@@ -207,3 +207,43 @@ export type MyCase = {
 export function listMyCases(token: string) {
   return request<MyCase[]>('/cases', {}, token);
 }
+
+// ---------- Case messages (customer <-> agent) ----------
+
+export type CaseMessage = {
+  id: number;
+  sender_role: 'customer' | 'agent';
+  body: string;
+  created_at: string;
+  sender_email: string;
+};
+
+// Customer side: only works for the customer's own cases.
+export function listCaseMessages(token: string, caseId: number) {
+  return request<CaseMessage[]>(`/cases/${caseId}/messages`, {}, token);
+}
+
+export function sendCaseMessage(token: string, caseId: number, body: string) {
+  return request<CaseMessage[]>(
+    `/cases/${caseId}/messages`,
+    { method: 'POST', body: JSON.stringify({ body }) },
+    token
+  );
+}
+
+// Agent side: works for any case, agents only.
+export function listAgentCaseMessages(token: string, caseId: number) {
+  return request<CaseMessage[]>(`/agent/cases/${caseId}/messages`, {}, token);
+}
+
+export function sendAgentCaseMessage(
+  token: string,
+  caseId: number,
+  body: string
+) {
+  return request<CaseMessage[]>(
+    `/agent/cases/${caseId}/messages`,
+    { method: 'POST', body: JSON.stringify({ body }) },
+    token
+  );
+}

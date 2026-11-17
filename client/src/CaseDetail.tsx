@@ -10,6 +10,7 @@ import {
   type CaseNote,
   type CaseStatus,
 } from './api';
+import CaseConversation from './CaseConversation';
 
 type Props = { token: string; caseId: number; onChanged: () => void };
 
@@ -172,6 +173,21 @@ export default function CaseDetail({ token, caseId, onChanged }: Props) {
             ))}
           </div>
         )}
+      </section>
+
+            <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Customer conversation{' '}
+          <span className="font-normal text-slate-400">
+            (the customer can see these)
+          </span>
+        </h3>
+        <CaseConversation
+          key={c.id}
+          token={token}
+          caseId={c.id}
+          viewer="agent"
+        />
       </section>
 
       <section className="space-y-2">
