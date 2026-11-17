@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AuthForm from './AuthForm';
 import Chat from './Chat';
 import AgentDashboard from './AgentDashboard';
+import KnowledgeBase from './KnowledgeBase';
 import MyCases from './MyCases';
 import { getMe, setUnauthorizedHandler } from './api';
 import { useTheme } from './useTheme';
@@ -12,7 +13,9 @@ export default function App() {
     localStorage.getItem('token')
   );
   const [isAgent, setIsAgent] = useState(false);
-  const [view, setView] = useState<'chat' | 'agent' | 'mycases'>('chat');
+  const [view, setView] = useState<'chat' | 'agent' | 'mycases' | 'kb'>(
+    'chat'
+  );
 
   // Ask the server whether the logged-in user is an agent.
   useEffect(() => {
@@ -30,13 +33,6 @@ export default function App() {
     };
   }, [token]);
 
-  
-  // If the server says the token is invalid or expired, log out.
-  useEffect(() => {
-    setUnauthorizedHandler(handleLogout);
-    return () => setUnauthorizedHandler(undefined);
-  });
-
   function handleAuthenticated(newToken: string) {
     localStorage.setItem('token', newToken);
     setToken(newToken);
@@ -49,6 +45,12 @@ export default function App() {
     setView('chat');
   }
 
+  // If the server says the token is invalid or expired, log out.
+  useEffect(() => {
+    setUnauthorizedHandler(handleLogout);
+    return () => setUnauthorizedHandler(undefined);
+  });
+
   if (!token) {
     return <AuthForm onAuthenticated={handleAuthenticated} />;
   }
@@ -59,11 +61,22 @@ export default function App() {
         token={token}
         onBack={() => setView('chat')}
         onLogout={handleLogout}
+        onOpenKb={() => setView('kb')}
       />
     );
   }
 
-    if (view === 'mycases') {
+  if (view === 'kb' && isAgent) {
+    return (
+      <KnowledgeBase
+        token={token}
+        onBack={() => setView('agent')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (view === 'mycases') {
     return (
       <MyCases
         token={token}

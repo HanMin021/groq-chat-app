@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { listAgentCases, type AgentCaseSummary } from './api';
 import CaseDetail from './CaseDetail';
 
-type Props = { token: string; onBack: () => void; onLogout: () => void };
+type Props = {
+  token: string;
+  onBack: () => void;
+  onLogout: () => void;
+  onOpenKb: () => void;
+};
 
 const severityStyle: Record<string, string> = {
   urgent: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
@@ -21,7 +26,12 @@ const statusLabel: Record<string, string> = {
 const selectClass =
   'rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200';
 
-export default function AgentDashboard({ token, onBack, onLogout }: Props) {
+export default function AgentDashboard({
+  token,
+  onBack,
+  onLogout,
+  onOpenKb,
+}: Props) {
   const [cases, setCases] = useState<AgentCaseSummary[]>([]);
   const [status, setStatus] = useState('');
   const [severity, setSeverity] = useState('');
@@ -52,6 +62,12 @@ export default function AgentDashboard({ token, onBack, onLogout }: Props) {
           Agent dashboard
         </h1>
         <div className="flex items-center gap-4">
+                    <button
+            onClick={onOpenKb}
+            className="rounded-lg bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            📚 Knowledge base
+          </button>
           <button
             onClick={onBack}
             className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"

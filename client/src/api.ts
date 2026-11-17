@@ -247,3 +247,47 @@ export function sendAgentCaseMessage(
     token
   );
 }
+
+// ---------- Knowledge base management (agents) ----------
+
+export type KbArticle = {
+  id: number;
+  title: string;
+  content: string;
+  keywords: string;
+  is_sample: boolean;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export function listKbArticles(token: string) {
+  return request<KbArticle[]>('/agent/kb', {}, token);
+}
+
+export function addKbArticle(
+  token: string,
+  data: { title: string; content: string; keywords: string }
+) {
+  return request<KbArticle[]>(
+    '/agent/kb',
+    { method: 'POST', body: JSON.stringify(data) },
+    token
+  );
+}
+
+export function updateKbArticle(
+  token: string,
+  id: number,
+  changes: {
+    title?: string;
+    content?: string;
+    keywords?: string;
+    isActive?: boolean;
+  }
+) {
+  return request<KbArticle[]>(
+    `/agent/kb/${id}`,
+    { method: 'PATCH', body: JSON.stringify(changes) },
+    token
+  );
+}

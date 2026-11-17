@@ -96,6 +96,50 @@ export const caseMessageSchema = z.object({
     .min(1, 'Please write a message.')
     .max(2000, 'A message can be up to 2000 characters.'),
 });
+
+// ---------- Knowledge base articles (agents) ----------
+
+const kbTitle = z
+  .string()
+  .trim()
+  .min(1, 'Title is required.')
+  .max(200, 'Title must be at most 200 characters.');
+
+const kbContent = z
+  .string()
+  .trim()
+  .min(1, 'Content is required.')
+  .max(10000, 'Content must be at most 10000 characters.');
+
+const kbKeywords = z
+  .string()
+  .trim()
+  .max(500, 'Keywords must be at most 500 characters.');
+
+// A new article. Keywords are optional.
+export const kbArticleSchema = z.object({
+  title: kbTitle,
+  content: kbContent,
+  keywords: kbKeywords.default(''),
+});
+
+// A change to an article: send only the fields that change.
+export const kbUpdateSchema = z
+  .object({
+    title: kbTitle.optional(),
+    content: kbContent.optional(),
+    keywords: kbKeywords.optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    (v) =>
+      v.title !== undefined ||
+      v.content !== undefined ||
+      v.keywords !== undefined ||
+      v.isActive !== undefined,
+    'Nothing to update'
+  );
+  
 export function validationMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Invalid request.';
 }

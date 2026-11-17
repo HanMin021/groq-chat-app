@@ -31,7 +31,13 @@ import {
   listCaseNotes,
   addCaseNote,
 } from './cases.js';
-import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './kb.js';
+import {
+  searchKnowledge,
+  SEARCH_KNOWLEDGE_TOOL,
+  listAllArticles,
+  addArticle,
+  updateArticle,
+} from './kb.js';
 import { getUserProfile } from './users.js';
 import {
   getCaseOwnerAndStatus,
@@ -45,6 +51,8 @@ import {
   noteSchema,
   idSchema,
   caseMessageSchema,
+  kbArticleSchema,
+  kbUpdateSchema,
   validationMessage,
 } from './validation.js';
 
@@ -187,6 +195,7 @@ app.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     });
 
     // The AI may use tools several times (for example search, then show the form).
+        let forceForm = false;
     for (let round = 0; round < 4; round++) {
       const toolCalls = completion.choices[0]?.message?.tool_calls;
       if (!toolCalls || toolCalls.length === 0) break;
@@ -208,6 +217,8 @@ app.post('/chat', requireAuth, chatLimiter, async (req, res) => {
             query = '';
           }
           const articles = await searchKnowledge(query);
+                    // Nothing matched: the next AI step must show the case form.
+          if (articles.length === 0 && !caseForm) forceForm = true;
           result =
             articles.length > 0
               ? {
@@ -247,11 +258,20 @@ app.post('/chat', requireAuth, chatLimiter, async (req, res) => {
         });
       }
 
-      completion = await groq.chat.completions.create({
+            completion = await groq.chat.completions.create({
         messages: chatMessages,
         model,
         tools,
+        ...(forceForm
+          ? {
+              tool_choice: {
+                type: 'function' as const,
+                function: { name: 'open_case_form' },
+              },
+            }
+          : {}),
       });
+      forceForm = false;
     }
 
     const reply =
@@ -563,6 +583,55 @@ app.post(
     }
   }
 );
+
+// ---------- Agent: knowledge base management ----------
+
+app.get('/agent/kb', requireAuth, requireAgent, async (_req, res) => {
+  try {
+    res.json(await listAllArticles());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load articles' });
+  }
+});
+
+app.post('/agent/kb', requireAuth, requireAgent, async (req, res) => {
+  const parsed = kbArticleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
+    return;
+  }
+  try {
+    await addArticle(parsed.data);
+    res.status(201).json(await listAllArticles());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save article' });
+  }
+});
+
+app.patch('/agent/kb/:id', requireAuth, requireAgent, async (req, res) => {
+  const idResult = idSchema.safeParse(req.params.id);
+  if (!idResult.success) {
+    res.status(404).json({ error: 'Article not found' });
+    return;
+  }
+  const parsed = kbUpdateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: validationMessage(parsed.error) });
+    return;
+  }
+  try {
+    if (!(await updateArticle(idResult.data, parsed.data))) {
+      res.status(404).json({ error: 'Article not found' });
+      return;
+    }
+    res.json(await listAllArticles());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update article' });
+  }
+});
 
 const PORT = Number(process.env.PORT) || 3000;
 
