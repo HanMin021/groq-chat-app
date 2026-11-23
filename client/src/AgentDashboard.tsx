@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listAgentCases, type AgentCaseSummary } from './api';
 import CaseDetail from './CaseDetail';
 
@@ -39,21 +39,32 @@ export default function AgentDashboard({
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      setCases(await listAgentCases(token, { status, severity }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load cases');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, status, severity]);
+  // Bumping this number makes the list load again (Refresh, or after a case changes).
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    listAgentCases(token, { status, severity })
+      .then((data) => {
+        if (cancelled) return;
+        setCases(data);
+        setError('');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Could not load cases');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, status, severity, reloadKey]);
+
+  function load() {
+    setReloadKey((k) => k + 1);
+  }
 
   return (
     <div className="flex h-screen flex-col bg-slate-50 dark:bg-slate-900">
