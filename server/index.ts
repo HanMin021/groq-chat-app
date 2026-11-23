@@ -43,6 +43,7 @@ import {
   getCaseOwnerAndStatus,
   listCaseMessages,
   addCaseMessage,
+  forCustomer,
 } from './caseMessages.js';
 import {
   chatSchema,
@@ -393,7 +394,7 @@ app.get('/cases/:id/messages', requireAuth, async (req, res) => {
       res.status(404).json({ error: 'Case not found' });
       return;
     }
-    res.json(await listCaseMessages(idResult.data));
+    res.json(forCustomer(await listCaseMessages(idResult.data)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load messages' });
@@ -687,7 +688,7 @@ app.post(
         'agent',
         parsed.data.body
       );
-      res.status(201).json(await listCaseMessages(idResult.data));
+      res.status(201).json(forCustomer(await listCaseMessages(idResult.data)));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to send message' });

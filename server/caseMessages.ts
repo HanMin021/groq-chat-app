@@ -61,3 +61,15 @@ export async function addCaseMessage(
     );
   return (result.rowsAffected[0] ?? 0) > 0;
 }
+
+
+// What a customer may see: no email addresses of agents.
+export function forCustomer(rows: CaseMessageRow[]) {
+  return rows.map(({ id, sender_role, body, created_at }) => ({
+    id,
+    sender_role,
+    body,
+    created_at,
+  }));
+}
+
