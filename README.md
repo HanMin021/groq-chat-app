@@ -130,6 +130,16 @@ Log in again to see the agent dashboard.
 
 ## Tests
 
+### Shortcut: start everything with one command
+
+After the setup above, you can start the API and the website together:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-dev.ps1
+```
+
+This opens two windows: the API on port 3000 and the website on port 5173. Close the two windows to stop them.
+
 ```powershell
 cd server
 npm test
