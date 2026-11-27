@@ -33,25 +33,40 @@ export default function MyCases({ token, onBack, onLogout }: Props) {
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState<number | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
-    listMyCases(token)
-      .then((data) => {
-        // Newest case first.
-        if (!cancelled) setCases([...data].sort((a, b) => b.id - a.id));
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Could not load your cases'
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    function load() {
+      listMyCases(token)
+        .then((data) => {
+          // Newest case first.
+          if (!cancelled) {
+            setCases([...data].sort((a, b) => b.id - a.id));
+            setError('');
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setError(
+              err instanceof Error ? err.message : 'Could not load your cases'
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
+
+    load();
+
+    // Refresh every 10 seconds, but only while this tab is visible.
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 10000);
+
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [token]);
 
